@@ -97,9 +97,11 @@ https://hub.docker.com/r/awakehns/custom-nginx
 Запуск и переименовывание контейнера
 
 ```
-docker run -d --name "awakehns-custom-nginx-t2" -p 127.0.0.1:8080:80 awakehns/custom-nginx:1.0.0
+docker run -d --name "DeminGerman-custom-nginx-t2" -p 127.0.0.1:8080:80 awakehns/custom-nginx:1.0.0
 
-date +"%d-%m-%Y %T.%N %Z" ; sleep 0.150 ; docker ps ; ss -tlpn | grep 8080 ; docker logs awakehns-custom-nginx-t2 -n1 ; docker exec -it awakehns-custom-nginx-t2 base64 /usr/share/nginx/html/index.html
+docker rename DeminGerman-custom-nginx-t2 custom-nginx-t2
+
+date +"%d-%m-%Y %T.%N %Z" ; sleep 0.150 ; docker ps ; ss -tlpn | grep 8080 ; docker logs custom-nginx-t2 -n1 ; docker exec -it custom-nginx-t2 base64 /usr/share/nginx/html/index.html
 
 curl http://127.0.0.1:8080
 ```
