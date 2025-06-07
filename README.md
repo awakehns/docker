@@ -173,7 +173,7 @@ Hey, Netology
 </html>
 ```
 
-Тесты поллючения после смены порта
+Тесты подключения после смены порта
 
 ![docker-attach-2](/img/docker-attach-2.png)
 
