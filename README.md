@@ -44,7 +44,7 @@ sudo nano /etc/docker/daemon.json
 }
 ```
 
-    sudo systemctl restart docker
+`sudo systemctl restart docker`
 
 
 Создание docker-образа
@@ -67,7 +67,7 @@ Hey, Netology
 </html>
 ```
 
-    nano Dockerfile
+`nano Dockerfile`
 
 
 ```
@@ -127,7 +127,7 @@ docker ps -a
 
 Повторный запуск контейнера
 
-    docker start custom-nginx-t2
+`docker start custom-nginx-t2`
 
 
 Подключение к контейнеру, остановка, повторный запуск
@@ -143,7 +143,7 @@ nano /etc/nginx/conf.d/default.conf
 
 Меняем порт с 80 на 81
 
-    docker exec -it custom-nginx-t2 bash
+`docker exec -it custom-nginx-t2 bash`
 
 
 
@@ -154,40 +154,23 @@ nginx -s reload
 curl http://127.0.0.1:80
 ```
 
-    curl: (7) Failed to connect to 127.0.0.1 port 80: Connection refused
-    
 ```
 curl http://127.0.0.1:81
 
 exit
 ```
 
-```
-<html>
-<head>
-Hey, Netology
-</head>
-<body>
-<h1>I will be DevOps Engineer!</h1>
-</body>
-</html>
-```
-
 Тесты подключения после смены порта
 
 ![docker-attach-2](/img/docker-attach-2.png)
 
-    ss -tlpn | grep 8080
+```
+ss -tlpn | grep 8080`
     
-    LISTEN 0      4096            127.0.0.1:8080       0.0.0.0:*  
-    
-    docker port custom-nginx-t2
-    
-    80/tcp -> 127.0.0.1:8080
+docker port custom-nginx-t2
 
-    curl http://127.0.0.1:8080
-    
-    curl: (56) Recv failure: Соединение разорвано другой стороной
+curl http://127.0.0.1:8080
+```
 
 Проверка проброшенных портов докера и тест подключения по старому порту
 
@@ -290,12 +273,261 @@ docker compose up -d
 
 Исправляем
 
-    docker compose -f docker-compose.yaml up -d
+`docker compose -f docker-compose.yaml up -d`
     
 Гасим compose одной командой
 
-    docker compose down
+`docker compose down`
     
 Скриншот вывода команд
 
 ![down](/img/down.png)
+
+# Домашнее задание к занятию 5 `«Практическое применение Docker»` - `Демин Герман`
+
+### Задание 1
+
+```
+git clone https://github.com/awakehns/shvirtd-example-python.git
+
+cd shvirtd-example-python
+
+nano Dockerfile.python
+```
+
+```
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Копируем все файлы проекта в контейнер
+COPY . .
+
+# Устанавливаем зависимости из requirements.txt (если есть)
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Запускаем приложение через uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
+```
+
+`nano .dockerignore`
+
+```
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.env
+*.sqlite3
+.env
+.dockerignore
+.git
+.gitignore
+venv/
+.idea/
+.vscode/
+```
+
+```
+docker build -t my-fastapi-app -f Dockerfile.python .
+
+docker run -p 5000:5000 my-fastapi-app
+```
+
+Билд и запуск сборки
+
+![2-build-and-run](/img/2-build-and-run.png)
+
+
+
+### Задание 3
+
+`nano compose.yaml`
+
+```
+include:
+  - proxy.yaml
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    # Или если образ уже в реестре Yandex Cloud, используйте:
+    # image: cr.yandex/<ваш-регион>/<ваш-репозиторий>/webapp:latest
+    restart: always
+    networks:
+      backend:
+        ipv4_address: 172.20.0.5
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    expose:
+      - "5000"
+
+  db:
+    image: mysql:8
+    restart: always
+    networks:
+      backend:
+        ipv4_address: 172.20.0.10
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
+
+networks:
+  backend:
+    external: true
+```
+
+`nano Dockerfile.python`
+
+```
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY app.py .
+
+RUN pip install flask mysql-connector-python
+
+ENV FLASK_APP=app.py
+
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+```
+
+`nano app.py`
+
+```
+from flask import Flask, request
+import socket
+import datetime
+import mysql.connector
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    # Подключение к БД
+    conn = mysql.connector.connect(
+        host='db',
+        user='exampleuser',
+        password='examplepass',
+        database='example'
+    )
+
+    cursor = conn.cursor()
+    # Создание таблицы при первом запуске
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS requests (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip VARCHAR(45)
+        );
+    ''')
+
+    # Вставка IP-адреса
+    user_ip = request.remote_addr
+    cursor.execute('INSERT INTO requests (ip) VALUES (%s)', (user_ip,))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return f"Time: {datetime.datetime.now()}<br>IP: {user_ip}\n"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+```
+
+```
+docker compose up --build -d
+
+curl -L http://127.0.0.1:8090
+
+docker exec -ti shvirtd-example-python-db-1 mysql -uroot -psupersecretrootpass
+
+show databases;
+
+use example;
+
+show tables;
+
+SELECT * from requests LIMIT 10;
+
+\q
+
+docker compose down
+```
+
+curl, обращение к db, вывод таблицы, выход из db, остановка проекта
+
+![curl](/img/curl.png)
+
+
+
+Для следующего задания я буду использовать pacman вместо dnf, так как сменил дистрибутив
+
+### Задание 6
+
+```
+docker pull hashicorp/terraform:latest
+
+sudo pacman -S dive
+
+mkdir terraform
+
+cd terraform/
+
+docker save hashicorp/terraform:latest -o terraform.tar.gz
+
+tar xvf terraform.tar.gz 
+
+mkdir extracted
+
+find blobs/sha256 -type f | while read blob; do
+    tar -xf "$blob" -C extracted 2>/dev/null
+done
+
+mkdir ~/terraform
+
+cp extracted/bin/terraform ~/terraform
+
+~/terraform/terraform version
+```
+
+Сохранение бинарника terraform из образа через docker save
+
+![terraform-save](/img/terraform-save.png)
+
+
+
+### Задание 6.1
+
+```
+docker create --name tf-temp hashicorp/terraform:latest
+
+mkdir ~/terraform/cp
+
+docker cp tf-temp:/bin/terraform ~/terraform/cp/
+
+ls -l ~/terraform/cp/
+
+~/terraform/cp/terraform version
+
+docker rm tf-temp
+```
+
+Сохранение бинарника terraform из образа через docker cp
+
+![terraform-cp](/img/terraform-cp.png)
